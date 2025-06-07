@@ -24,3 +24,12 @@ func GetUserByID(ID uint) (*model.User, error) {
 	}
 	return &user, nil
 }
+
+func GetUserByUsername(username string) (*model.User, error) {
+	var user model.User
+	result := DB.Where("Username = ?", username).First(&user)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &user, nil
+}

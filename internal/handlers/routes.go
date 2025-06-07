@@ -1,4 +1,4 @@
-package handler
+package handlers
 
 import (
 	"github.com/gin-gonic/gin"
@@ -7,4 +7,5 @@ import (
 func RegisterRoutes(r *gin.Engine) {
 	r.GET("/ping", PingHandler)
 	r.POST("/register", RegisterUser)
+	r.POST("/login", LoginHandler)
 }
