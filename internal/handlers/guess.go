@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
+	"reflect"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +13,14 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
+
+type ValidateRequest struct {
+	Grid datatypes.JSON `json:"grid"`
+}
+
+type ValidateResponse struct {
+	Correct bool `json:"correct"`
+}
 
 func SubmitGuessHandler(c *gin.Context) {
 	userID := c.MustGet("userID").(uint)
@@ -53,4 +63,35 @@ func SubmitGuessHandler(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "guess saved"})
+}
+
+func ValidateGuessHandler(c *gin.Context) {
+	idStr := c.Param("id")
+	puzzleID, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid puzzle id"})
+		return
+	}
+
+	// Parse request body
+	var req ValidateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON"})
+		return
+	}
+
+	// Fetch puzzle from DB
+	puzzle, err := storage.GetPuzzleByID(int(puzzleID))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "puzzle not found"})
+		return
+	}
+
+	// Compare grids
+	var guessGrid, solutionGrid [][]string
+	json.Unmarshal(req.Grid, &guessGrid)
+	json.Unmarshal(puzzle.Solution, &solutionGrid)
+
+	correct := reflect.DeepEqual(guessGrid, solutionGrid)
+	c.JSON(http.StatusOK, ValidateResponse{Correct: correct})
 }

@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -11,44 +11,39 @@ import (
 	"gorm.io/datatypes"
 )
 
-type createPuzzleRequest struct {
-	Title    string          `json:"title"`
-	Grid     json.RawMessage `json:"grid"`
-	Clues    json.RawMessage `json:"clues"`
-	Solution json.RawMessage `json:"solution"`
+type CreatePuzzleRequest struct {
+	Title    string         `json:"title"`
+	Grid     datatypes.JSON `json:"grid"`
+	Clues    datatypes.JSON `json:"clues"`
+	Solution datatypes.JSON `json:"solution"`
 }
 
 func CreatePuzzleHandler(c *gin.Context) {
+	userID := c.MustGet("userID").(uint)
 
-	session, err := GetSessionFromContext(c)
-
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-
-	var req createPuzzleRequest
+	var req CreatePuzzleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
 
-	puzzle := model.Puzzle{
+	newPuzzle := model.Puzzle{
 		Title:    req.Title,
-		Grid:     datatypes.JSON(req.Grid),
-		Clues:    datatypes.JSON(req.Clues),
-		Solution: datatypes.JSON(req.Solution),
+		Grid:     req.Grid,
+		Clues:    req.Clues,
+		Solution: req.Solution,
+		AuthorID: userID,
 		Created:  time.Now(),
-		AuthorID: session.UserID,
 	}
 
-	if err := storage.CreatePuzzle(&puzzle); err != nil {
+	if err := storage.CreatePuzzle(&newPuzzle); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not save puzzle"})
 		return
 	}
 
-	c.JSON(http.StatusOK, puzzle)
+	c.JSON(http.StatusCreated, newPuzzle)
 }
+
 func GetMyPuzzlesHandler(c *gin.Context) {
 	session, _ := GetSessionFromContext(c)
 	puzzles, _ := storage.GetPuzzlesByUserID(session.UserID)
@@ -63,4 +58,49 @@ func GetPuzzleByIDHandler(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, puzzle)
+}
+func UpdatePuzzleHandler(c *gin.Context) {
+	userID := c.MustGet("userID").(uint)
+	id, _ := strconv.Atoi(c.Param("id"))
+
+	puzzle, err := storage.GetPuzzleByID(int(id))
+	if err != nil || puzzle.AuthorID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "not authorized"})
+		return
+	}
+
+	var req CreatePuzzleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	puzzle.Title = req.Title
+	puzzle.Grid = req.Grid
+	puzzle.Clues = req.Clues
+	puzzle.Solution = req.Solution
+
+	if err := storage.UpdatePuzzle(puzzle); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "update failed"})
+		return
+	}
+
+	c.JSON(http.StatusOK, puzzle)
+}
+func DeletePuzzleHandler(c *gin.Context) {
+	userID := c.MustGet("userID").(uint)
+	id, _ := strconv.Atoi(c.Param("id"))
+
+	puzzle, err := storage.GetPuzzleByID(int(id))
+	if err != nil || puzzle.AuthorID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "not authorized"})
+		return
+	}
+
+	if err := storage.DeletePuzzleByID(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete failed"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }

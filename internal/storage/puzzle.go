@@ -22,3 +22,10 @@ func GetPuzzleByID(id int) (*model.Puzzle, error) {
 	}
 	return &puzzle, nil
 }
+
+func UpdatePuzzle(p *model.Puzzle) error {
+	return DB.Save(p).Error
+}
+func DeletePuzzleByID(id uint) error {
+	return DB.Delete(&model.Puzzle{}, id).Error
+}
