@@ -17,7 +17,7 @@ func InitDatabase() {
 		log.Fatal("failed to connect database:", err)
 	}
 
-	err = DB.AutoMigrate(&model.User{})
+	err = DB.AutoMigrate(&model.User{}, &model.Puzzle{})
 	if err != nil {
 		log.Fatal("failed to migrate database:", err)
 	}
