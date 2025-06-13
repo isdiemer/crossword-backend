@@ -1,0 +1,18 @@
+package routes
+
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/isdiemer/crossword-backend/internal/handlers"
+)
+
+func RegisterRoutes(r *gin.Engine) {
+	r.GET("/ping", handlers.PingHandler)
+	r.GET("/me", handlers.AuthMiddleware, handlers.MeHandler)
+	r.POST("/register", handlers.RegisterUser)
+	r.POST("/login", handlers.LoginHandler)
+	r.POST("/logout", handlers.LogoutHandler)
+	r.POST("/delete", handlers.AuthMiddleware, handlers.DeleteHandler)
+	r.GET("/my-puzzles", handlers.AuthMiddleware, handlers.GetMyPuzzlesHandler)
+	r.GET("/puzzles/:id", handlers.GetPuzzleByIDHandler)
+	r.POST("/guess", handlers.AuthMiddleware, handlers.SubmitGuessHandler)
+}
