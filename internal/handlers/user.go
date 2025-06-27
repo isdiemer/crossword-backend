@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -12,14 +13,22 @@ func RegisterUser(c *gin.Context) {
 	var input RegisterInput
 	err := c.ShouldBindJSON(&input)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid input"})
+		log.Printf("Registration input binding error: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid input"})
 		return
 	}
+
+	log.Printf("Attempting to register user: %s with email: %s", input.Username, input.Email)
+
 	user, err := service.RegisterNewUser(input.Username, input.Email, input.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"Username Taken!": err})
+		log.Printf("Registration service error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	log.Printf("Successfully registered user with ID: %d", user.ID)
+
 	c.JSON(http.StatusOK, gin.H{
 		"id":       user.ID,
 		"username": user.Username,
@@ -27,6 +36,7 @@ func RegisterUser(c *gin.Context) {
 		"created":  user.CreatedAt,
 	})
 }
+
 func PingHandler(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "pong"})
 }
