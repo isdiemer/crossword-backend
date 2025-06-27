@@ -17,7 +17,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.POST("/puzzles", handlers.AuthMiddleware, handlers.CreatePuzzleHandler)
 	r.PUT("/puzzles/:id", handlers.AuthMiddleware, handlers.UpdatePuzzleHandler)
 	r.POST("/guess", handlers.AuthMiddleware, handlers.SubmitGuessHandler)
+	r.GET("/guess/:puzzleId", handlers.AuthMiddleware, handlers.GetGuessHandler)
 	r.POST("/puzzles/:id/validate-guess", handlers.AuthMiddleware, handlers.ValidateGuessHandler)
 	r.DELETE("/puzzles/:id", handlers.AuthMiddleware, handlers.DeletePuzzleHandler)
-
 }

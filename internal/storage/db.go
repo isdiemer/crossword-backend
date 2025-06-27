@@ -20,7 +20,7 @@ func InitDatabase() {
 		log.Fatal("failed to connect to Supabase:", err)
 	}
 
-	err = DB.AutoMigrate(&model.User{}, &model.Session{})
+	err = DB.AutoMigrate(&model.User{}, &model.Session{}, &model.Puzzle{}, &model.Guess{})
 	if err != nil {
 		log.Fatal("failed to migrate:", err)
 	}

@@ -1,11 +1,21 @@
 package storage
 
 import (
+	"log"
+
 	"github.com/isdiemer/crossword-backend/internal/model"
 )
 
 func CreateUser(user *model.User) error {
+	log.Printf("Storage: Creating user with username: %s, email: %s", user.Username, user.Email)
+
 	result := DB.Create(user)
+	if result.Error != nil {
+		log.Printf("Storage: Database error creating user: %v", result.Error)
+		return result.Error
+	}
+
+	log.Printf("Storage: User created successfully with ID: %d", user.ID)
 	return result.Error
 }
 
@@ -35,9 +45,11 @@ func GetUserByUsername(username string) (*model.User, error) {
 	}
 	return &user, nil
 }
+
 func CreateSession(session model.Session) error {
 	return DB.Create(&session).Error
 }
+
 func GetSessionByToken(token string) (*model.Session, error) {
 	var session model.Session
 	result := DB.Where("token = ?", token).First(&session)
@@ -59,6 +71,7 @@ func GetSessionByUsername(name string) (*model.Session, error) {
 func DropSessionByToken(token string) error {
 	return DB.Delete("token = ?", token).Delete(&model.Session{}).Error
 }
+
 func RemoveUserByID(ID uint) error {
 	return DB.Where("id = ?", ID).Delete(&model.User{}).Error
 }

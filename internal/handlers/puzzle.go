@@ -49,6 +49,7 @@ func GetMyPuzzlesHandler(c *gin.Context) {
 	puzzles, _ := storage.GetPuzzlesByUserID(session.UserID)
 	c.JSON(http.StatusOK, puzzles)
 }
+
 func GetPuzzleByIDHandler(c *gin.Context) {
 	id := c.Param("id")
 	var puzzle model.Puzzle
@@ -59,6 +60,7 @@ func GetPuzzleByIDHandler(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, puzzle)
 }
+
 func UpdatePuzzleHandler(c *gin.Context) {
 	userID := c.MustGet("userID").(uint)
 	id, _ := strconv.Atoi(c.Param("id"))
@@ -87,6 +89,7 @@ func UpdatePuzzleHandler(c *gin.Context) {
 
 	c.JSON(http.StatusOK, puzzle)
 }
+
 func DeletePuzzleHandler(c *gin.Context) {
 	userID := c.MustGet("userID").(uint)
 	id, _ := strconv.Atoi(c.Param("id"))
