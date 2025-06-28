@@ -3,6 +3,7 @@ package handlers
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/isdiemer/crossword-backend/internal/sessions"
@@ -36,14 +37,30 @@ func LoginHandler(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("session_token", // name
-		token, // value
-		3600,  // expiration
-		"/",   // path
-		"",    // domain
-		true,  // secure
-		true,  // httpOnly
+	// Get environment
+	isProduction := os.Getenv("GIN_MODE") == "release"
+	domain := os.Getenv("COOKIE_DOMAIN")
+
+	// Log cookie settings
+	log.Printf("Setting cookie with settings - Domain: %s, Secure: %v, Production Mode: %v", domain, isProduction, isProduction)
+	log.Printf("Request Origin: %s", c.GetHeader("Origin"))
+
+	c.SetCookie(
+		"session_token", // name
+		token,           // value
+		3600,            // expiration (1 hour)
+		"/",             // path
+		domain,          // domain (empty for same-origin)
+		isProduction,    // secure (only in production)
+		true,            // httpOnly
 	)
+
+	// Verify cookie was set in response headers
+	if cookie, err := c.Cookie("session_token"); err != nil {
+		log.Printf("Warning: Could not read back cookie: %v", err)
+	} else {
+		log.Printf("Cookie successfully set and readable: %v", cookie != "")
+	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Login successful"})
 }

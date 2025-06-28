@@ -20,8 +20,9 @@ import (
 func buildCORS() cors.Config {
 	cfg := cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "Cookie", "Set-Cookie"},
 		AllowCredentials: true,
+		ExposeHeaders:    []string{"Set-Cookie"},
 		MaxAge:           12 * time.Hour,
 	}
 
@@ -29,18 +30,29 @@ func buildCORS() cors.Config {
 	exact := map[string]struct{}{}
 	if v := os.Getenv("ALLOWED_ORIGINS"); v != "" {
 		for _, o := range strings.Split(v, ",") {
-			exact[strings.TrimSpace(o)] = struct{}{}
+			o = strings.TrimSpace(o)
+			exact[o] = struct{}{}
+			log.Printf("Added allowed origin: %s", o)
 		}
+	} else {
+		log.Printf("Warning: No ALLOWED_ORIGINS environment variable set")
 	}
 
 	cfg.AllowOriginFunc = func(origin string) bool {
+		// Log the incoming origin
+		log.Printf("Checking origin: %s", origin)
+
 		// 1️⃣ explicit list
 		if _, ok := exact[origin]; ok {
+			log.Printf("Origin %s allowed by exact match", origin)
 			return true
 		}
 		// 2️⃣ any Vercel preview, e.g. https://my-branch--app.vercel.app
-		return strings.HasPrefix(origin, "https://") &&
-			strings.HasSuffix(origin, ".vercel.app")
+		isVercel := strings.HasPrefix(origin, "https://") && strings.HasSuffix(origin, ".vercel.app")
+		if isVercel {
+			log.Printf("Origin %s allowed as Vercel preview", origin)
+		}
+		return isVercel
 	}
 
 	return cfg
@@ -53,12 +65,18 @@ func main() {
 	}
 	r := gin.Default()
 
-	// Load .env in local dev; ignore if it doesn’t exist
+	// Load .env in local dev; ignore if it doesn't exist
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}
 
-	r.Use(cors.New(buildCORS()))
+	// Log environment variables
+	log.Printf("Environment Mode: %s", gin.Mode())
+	log.Printf("Cookie Domain: %s", os.Getenv("COOKIE_DOMAIN"))
+	log.Printf("Allowed Origins: %s", os.Getenv("ALLOWED_ORIGINS"))
+
+	corsConfig := buildCORS()
+	r.Use(cors.New(corsConfig))
 
 	// init DB & routes
 	storage.InitDatabase()
