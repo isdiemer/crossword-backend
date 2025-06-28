@@ -1,9 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/isdiemer/crossword-backend/internal/sessions"
@@ -31,38 +31,65 @@ func LoginHandler(c *gin.Context) {
 	}
 
 	token, err := sessions.Create(user.ID)
-
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Error Inserting Token"})
 		return
 	}
 
-	// Get environment
-	isProduction := os.Getenv("GIN_MODE") == "release"
-	domain := os.Getenv("COOKIE_DOMAIN")
+	// Log all request headers for debugging
+	log.Printf("All request headers:")
+	for k, v := range c.Request.Header {
+		log.Printf("%s: %v", k, v)
+	}
 
-	// Log cookie settings
-	log.Printf("Setting cookie with settings - Domain: %s, Secure: %v, Production Mode: %v", domain, isProduction, isProduction)
-	log.Printf("Request Origin: %s", c.GetHeader("Origin"))
+	// Get origin and set cookie domain
+	origin := c.GetHeader("Origin")
+	log.Printf("Request Origin: %s", origin)
 
+	// Set cookie attributes
+	cookieName := "session_token"
+	cookieValue := token
+	maxAge := 3600
+	path := "/"
+	domain := "" // Try without domain first
+	secure := true
+	httpOnly := true
+
+	// Set the cookie
 	c.SetCookie(
-		"session_token", // name
-		token,           // value
-		3600,            // expiration (1 hour)
-		"/",             // path
-		domain,          // domain (empty for same-origin)
-		isProduction,    // secure (only in production)
-		true,            // httpOnly
+		cookieName,
+		cookieValue,
+		maxAge,
+		path,
+		domain,
+		secure,
+		httpOnly,
 	)
 
-	// Verify cookie was set in response headers
+	// Manually set the Set-Cookie header as well
+	c.Header("Set-Cookie", fmt.Sprintf("%s=%s; Path=%s; Max-Age=%d; HttpOnly; Secure",
+		cookieName, cookieValue, path, maxAge))
+
+	// Log response headers
+	log.Printf("Response headers being set:")
+	for k, v := range c.Writer.Header() {
+		log.Printf("%s: %v", k, v)
+	}
+
+	// Try to read the cookie back
 	if cookie, err := c.Cookie("session_token"); err != nil {
 		log.Printf("Warning: Could not read back cookie: %v", err)
 	} else {
 		log.Printf("Cookie successfully set and readable: %v", cookie != "")
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Login successful"})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Login successful",
+		"debug_info": gin.H{
+			"origin":      origin,
+			"headers_set": c.Writer.Header(),
+		},
+	})
 }
 
 func LogoutHandler(c *gin.Context) {

@@ -19,15 +19,33 @@ import (
 //   - and green-lights any https://*.vercel.app preview URL.
 func buildCORS() cors.Config {
 	cfg := cors.Config{
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "Cookie", "Set-Cookie"},
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{
+			"Origin",
+			"Content-Type",
+			"Content-Length",
+			"Accept-Encoding",
+			"X-CSRF-Token",
+			"Authorization",
+			"Accept",
+			"Cache-Control",
+			"X-Requested-With",
+			"Cookie",
+			"Set-Cookie",
+		},
 		AllowCredentials: true,
-		ExposeHeaders:    []string{"Set-Cookie"},
-		MaxAge:           12 * time.Hour,
+		ExposeHeaders: []string{
+			"Set-Cookie",
+			"Access-Control-Allow-Origin",
+			"Access-Control-Allow-Credentials",
+		},
+		MaxAge: 12 * time.Hour,
 	}
 
 	// Exact-match origins from env (comma-separated)
-	exact := map[string]struct{}{}
+	exact := map[string]struct{}{
+		"https://crossword-frontend-one.vercel.app": struct{}{},
+	}
 	if v := os.Getenv("ALLOWED_ORIGINS"); v != "" {
 		for _, o := range strings.Split(v, ",") {
 			o = strings.TrimSpace(o)
@@ -35,30 +53,42 @@ func buildCORS() cors.Config {
 			log.Printf("Added allowed origin: %s", o)
 		}
 	} else {
-		log.Printf("Warning: No ALLOWED_ORIGINS environment variable set")
+		log.Printf("Warning: No ALLOWED_ORIGINS environment variable set, using default Vercel domain")
 	}
 
 	cfg.AllowOriginFunc = func(origin string) bool {
 		// Log the incoming origin
-		log.Printf("Checking origin: %s", origin)
+		log.Printf("CORS: Checking origin: %s", origin)
 
-		// 1️⃣ explicit list
-		if _, ok := exact[origin]; ok {
-			log.Printf("Origin %s allowed by exact match", origin)
+		// Always allow the main Vercel domain
+		if origin == "https://crossword-frontend-one.vercel.app" {
+			log.Printf("CORS: Origin %s allowed as main Vercel domain", origin)
 			return true
 		}
-		// 2️⃣ any Vercel preview, e.g. https://my-branch--app.vercel.app
-		isVercel := strings.HasPrefix(origin, "https://") && strings.HasSuffix(origin, ".vercel.app")
-		if isVercel {
-			log.Printf("Origin %s allowed as Vercel preview", origin)
+
+		// Check explicit list
+		if _, ok := exact[origin]; ok {
+			log.Printf("CORS: Origin %s allowed by exact match", origin)
+			return true
 		}
-		return isVercel
+
+		// Allow Vercel preview deployments
+		if strings.HasPrefix(origin, "https://") && strings.HasSuffix(origin, ".vercel.app") {
+			log.Printf("CORS: Origin %s allowed as Vercel preview", origin)
+			return true
+		}
+
+		log.Printf("CORS: Origin %s denied", origin)
+		return false
 	}
 
 	return cfg
 }
 
 func main() {
+	// Configure logging
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+
 	// Gin in release mode unless GIN_MODE=debug
 	if gin.Mode() != gin.ReleaseMode {
 		gin.SetMode(gin.ReleaseMode)
@@ -70,13 +100,25 @@ func main() {
 		log.Println("No .env file found")
 	}
 
-	// Log environment variables
-	log.Printf("Environment Mode: %s", gin.Mode())
-	log.Printf("Cookie Domain: %s", os.Getenv("COOKIE_DOMAIN"))
-	log.Printf("Allowed Origins: %s", os.Getenv("ALLOWED_ORIGINS"))
+	// Log all environment variables
+	log.Printf("Environment Configuration:")
+	log.Printf("- GIN_MODE: %s", gin.Mode())
+	log.Printf("- ALLOWED_ORIGINS: %s", os.Getenv("ALLOWED_ORIGINS"))
+	log.Printf("- PORT: %s", os.Getenv("PORT"))
 
+	// Configure CORS
 	corsConfig := buildCORS()
 	r.Use(cors.New(corsConfig))
+
+	// Add middleware to log all requests
+	r.Use(func(c *gin.Context) {
+		log.Printf("Incoming request: %s %s", c.Request.Method, c.Request.URL.Path)
+		log.Printf("Request headers:")
+		for k, v := range c.Request.Header {
+			log.Printf("  %s: %v", k, v)
+		}
+		c.Next()
+	})
 
 	// init DB & routes
 	storage.InitDatabase()
@@ -87,6 +129,8 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+
+	log.Printf("Server starting on port %s", port)
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
