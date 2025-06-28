@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -64,22 +63,20 @@ func LoginHandler(c *gin.Context) {
 	secure := true
 	httpOnly := true
 
-	// Set the cookie
-	c.SetSameSite(http.SameSiteNoneMode) // Required for cross-origin cookies
-	c.SetCookie(
-		cookieName,
-		cookieValue,
-		maxAge,
-		path,
-		domain,
-		secure,
-		httpOnly,
-	)
+	// Create a new cookie instance
+	cookie := &http.Cookie{
+		Name:     cookieName,
+		Value:    cookieValue,
+		Path:     path,
+		Domain:   domain,
+		MaxAge:   maxAge,
+		Secure:   secure,
+		HttpOnly: httpOnly,
+		SameSite: http.SameSiteNoneMode,
+	}
 
-	// Manually set the Set-Cookie header with all required attributes
-	c.Header("Set-Cookie", fmt.Sprintf(
-		"%s=%s; Path=%s; Domain=%s; Max-Age=%d; HttpOnly; Secure; SameSite=None",
-		cookieName, cookieValue, path, domain, maxAge))
+	// Set the cookie using http.SetCookie
+	http.SetCookie(c.Writer, cookie)
 
 	// Log response headers
 	log.Printf("Response headers being set:")
