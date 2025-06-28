@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/isdiemer/crossword-backend/internal/sessions"
@@ -46,16 +48,24 @@ func LoginHandler(c *gin.Context) {
 	origin := c.GetHeader("Origin")
 	log.Printf("Request Origin: %s", origin)
 
+	// Extract domain from origin
+	var domain string
+	if strings.Contains(origin, "vercel.app") {
+		domain = ".vercel.app" // Note the leading dot for cross-subdomain support
+	} else {
+		domain = os.Getenv("COOKIE_DOMAIN")
+	}
+
 	// Set cookie attributes
 	cookieName := "session_token"
 	cookieValue := token
 	maxAge := 3600
 	path := "/"
-	domain := "" // Try without domain first
 	secure := true
 	httpOnly := true
 
 	// Set the cookie
+	c.SetSameSite(http.SameSiteNoneMode) // Required for cross-origin cookies
 	c.SetCookie(
 		cookieName,
 		cookieValue,
@@ -66,9 +76,10 @@ func LoginHandler(c *gin.Context) {
 		httpOnly,
 	)
 
-	// Manually set the Set-Cookie header as well
-	c.Header("Set-Cookie", fmt.Sprintf("%s=%s; Path=%s; Max-Age=%d; HttpOnly; Secure",
-		cookieName, cookieValue, path, maxAge))
+	// Manually set the Set-Cookie header with all required attributes
+	c.Header("Set-Cookie", fmt.Sprintf(
+		"%s=%s; Path=%s; Domain=%s; Max-Age=%d; HttpOnly; Secure; SameSite=None",
+		cookieName, cookieValue, path, domain, maxAge))
 
 	// Log response headers
 	log.Printf("Response headers being set:")
@@ -87,6 +98,7 @@ func LoginHandler(c *gin.Context) {
 		"message": "Login successful",
 		"debug_info": gin.H{
 			"origin":      origin,
+			"domain":      domain,
 			"headers_set": c.Writer.Header(),
 		},
 	})
