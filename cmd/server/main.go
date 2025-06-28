@@ -3,87 +3,73 @@ package main
 import (
 	"log"
 	"os"
-	"regexp"
 	"strings"
-
-	"github.com/joho/godotenv"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+
 	"github.com/isdiemer/crossword-backend/internal/routes"
 	"github.com/isdiemer/crossword-backend/internal/storage"
 )
 
+// buildCORS returns a cors.Config that
+//   - echoes exact origins from ALLOWED_ORIGINS
+//   - and green-lights any https://*.vercel.app preview URL.
+func buildCORS() cors.Config {
+	cfg := cors.Config{
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}
+
+	// Exact-match origins from env (comma-separated)
+	exact := map[string]struct{}{}
+	if v := os.Getenv("ALLOWED_ORIGINS"); v != "" {
+		for _, o := range strings.Split(v, ",") {
+			exact[strings.TrimSpace(o)] = struct{}{}
+		}
+	}
+
+	cfg.AllowOriginFunc = func(origin string) bool {
+		// 1️⃣ explicit list
+		if _, ok := exact[origin]; ok {
+			return true
+		}
+		// 2️⃣ any Vercel preview, e.g. https://my-branch--app.vercel.app
+		return strings.HasPrefix(origin, "https://") &&
+			strings.HasSuffix(origin, ".vercel.app")
+	}
+
+	return cfg
+}
+
 func main() {
+	// Gin in release mode unless GIN_MODE=debug
+	if gin.Mode() != gin.ReleaseMode {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	r := gin.Default()
 
-	err := godotenv.Load()
-	if err != nil {
+	// Load .env in local dev; ignore if it doesn’t exist
+	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}
 
-	// Configure CORS middleware
-	config := cors.DefaultConfig()
+	r.Use(cors.New(buildCORS()))
 
-	// Get allowed origins from environment variable, fallback to localhost if not set
-	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
-	if allowedOrigins == "" {
-		// Default to localhost and Vercel preview URLs
-		allowedOrigins = "http://localhost:4200,http://localhost:3000,https://*.vercel.app"
-	}
-
-	// Handle wildcard domains for Vercel
-	origins := strings.Split(allowedOrigins, ",")
-	if containsWildcard(origins) {
-		config.AllowOriginFunc = func(origin string) bool {
-			return isAllowedOrigin(origin, origins)
-		}
-	} else {
-		config.AllowOrigins = origins
-	}
-
-	config.AllowCredentials = true
-	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
-	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With", "Cookie"}
-
-	r.Use(cors.New(config))
-
+	// init DB & routes
 	storage.InitDatabase()
 	routes.RegisterRoutes(r)
 
-	// Get port from environment variable, fallback to 8080 if not set
+	// Port from env, fallback 8080
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-
 	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("Server failed: %v", err)
+		log.Fatalf("server failed: %v", err)
 	}
-}
-
-// Helper function to check if origins contain wildcard
-func containsWildcard(origins []string) bool {
-	for _, origin := range origins {
-		if strings.Contains(origin, "*") {
-			return true
-		}
-	}
-	return false
-}
-
-// Helper function to check if an origin matches the allowed patterns
-func isAllowedOrigin(origin string, allowedPatterns []string) bool {
-	for _, pattern := range allowedPatterns {
-		if strings.Contains(pattern, "*") {
-			// Convert wildcard pattern to regex
-			regexPattern := strings.Replace(pattern, "*", ".*", -1)
-			if matched, _ := regexp.MatchString(regexPattern, origin); matched {
-				return true
-			}
-		} else if origin == pattern {
-			return true
-		}
-	}
-	return false
 }

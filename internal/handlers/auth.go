@@ -41,7 +41,7 @@ func LoginHandler(c *gin.Context) {
 		3600,  // expiration
 		"/",   // path
 		"",    // domain
-		false, // secure
+		true,  // secure
 		true,  // httpOnly
 	)
 
