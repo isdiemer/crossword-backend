@@ -14,9 +14,6 @@ import (
 	"github.com/isdiemer/crossword-backend/internal/storage"
 )
 
-// buildCORS returns a cors.Config that
-//   - echoes exact origins from ALLOWED_ORIGINS
-//   - and green-lights any https://*.vercel.app preview URL.
 func buildCORS() cors.Config {
 	cfg := cors.Config{
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},

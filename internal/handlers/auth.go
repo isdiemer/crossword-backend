@@ -3,7 +3,6 @@ package handlers
 import (
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -33,71 +32,30 @@ func LoginHandler(c *gin.Context) {
 
 	token, err := sessions.Create(user.ID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Error Inserting Token"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Error creating session"})
 		return
 	}
 
-	// Log all request headers for debugging
-	log.Printf("All request headers:")
-	for k, v := range c.Request.Header {
-		log.Printf("%s: %v", k, v)
+	origin := c.GetHeader("Origin") // e.g. https://branch--app.vercel.app
+	domain := ""                    // omit = exact host
+	if strings.HasSuffix(origin, ".vercel.app") {
+		domain = "crossword-frontend-one.vercel.app" // explicit, or leave blank
 	}
 
-	// Get origin and set cookie domain
-	origin := c.GetHeader("Origin")
-	log.Printf("Request Origin: %s", origin)
-
-	// Extract domain from origin
-	var domain string
-	if strings.Contains(origin, "vercel.app") {
-		domain = ".vercel.app" // Note the leading dot for cross-subdomain support
-	} else {
-		domain = os.Getenv("COOKIE_DOMAIN")
-	}
-
-	// Set cookie attributes
-	cookieName := "session_token"
-	cookieValue := token
-	maxAge := 3600
-	path := "/"
-	secure := true
-	httpOnly := true
-
-	// Create a new cookie instance
-	cookie := &http.Cookie{
-		Name:     cookieName,
-		Value:    cookieValue,
-		Path:     path,
-		Domain:   domain,
-		MaxAge:   maxAge,
-		Secure:   secure,
-		HttpOnly: httpOnly,
-		SameSite: http.SameSiteNoneMode,
-	}
-
-	// Set the cookie using http.SetCookie
-	http.SetCookie(c.Writer, cookie)
-
-	// Log response headers
-	log.Printf("Response headers being set:")
-	for k, v := range c.Writer.Header() {
-		log.Printf("%s: %v", k, v)
-	}
-
-	// Try to read the cookie back
-	if cookie, err := c.Cookie("session_token"); err != nil {
-		log.Printf("Warning: Could not read back cookie: %v", err)
-	} else {
-		log.Printf("Cookie successfully set and readable: %v", cookie != "")
-	}
+	// ONE call – Gin wraps http.SetCookie under the hood
+	c.SetSameSite(http.SameSiteNoneMode)
+	c.SetCookie(
+		"session_token",
+		token,
+		3600,   // Max-Age seconds
+		"/",    // Path
+		domain, // Domain ("" → current host)
+		true,   // Secure
+		true,   // HttpOnly
+	)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
-		"debug_info": gin.H{
-			"origin":      origin,
-			"domain":      domain,
-			"headers_set": c.Writer.Header(),
-		},
 	})
 }
 
