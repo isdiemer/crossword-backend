@@ -63,22 +63,19 @@ func buildCORS() cors.Config {
 	cfg.AllowOrigins = allowOrigins
 
 	cfg.AllowOriginFunc = func(origin string) bool {
-		// Log the incoming origin
+		origin = strings.TrimRight(origin, "/")
 		log.Printf("CORS: Checking origin: %s", origin)
 
-		// Always allow the main Vercel domain
 		if origin == "https://crossword-frontend-one.vercel.app" {
 			log.Printf("CORS: Origin %s allowed as main Vercel domain", origin)
 			return true
 		}
 
-		// Check explicit list
 		if _, ok := exact[origin]; ok {
 			log.Printf("CORS: Origin %s allowed by exact match", origin)
 			return true
 		}
 
-		// Allow Vercel preview deployments
 		if strings.HasPrefix(origin, "https://") && strings.HasSuffix(origin, ".vercel.app") {
 			log.Printf("CORS: Origin %s allowed as Vercel preview", origin)
 			return true

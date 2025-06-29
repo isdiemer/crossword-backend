@@ -43,7 +43,7 @@ func LoginHandler(c *gin.Context) {
 		log.Printf("%s: %v", k, v)
 	}
 
-	// Get origin and set cookie domain
+	// Determine cookie domain
 	origin := c.GetHeader("Origin")
 	log.Printf("Request Origin: %s", origin)
 
