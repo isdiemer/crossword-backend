@@ -50,7 +50,7 @@ func LoginHandler(c *gin.Context) {
 	// Extract domain from origin
 	var domain string
 	if strings.Contains(origin, "vercel.app") {
-		domain = ".vercel.app" // Note the leading dot for cross-subdomain support
+		domain = ".vercel.app" // cross-subdomain support
 	} else {
 		domain = os.Getenv("COOKIE_DOMAIN")
 	}
@@ -60,23 +60,20 @@ func LoginHandler(c *gin.Context) {
 	cookieValue := token
 	maxAge := 3600
 	path := "/"
-	secure := true
+	secure := strings.HasPrefix(origin, "https")
 	httpOnly := true
 
-	// Create a new cookie instance
-	cookie := &http.Cookie{
-		Name:     cookieName,
-		Value:    cookieValue,
-		Path:     path,
-		Domain:   domain,
-		MaxAge:   maxAge,
-		Secure:   secure,
-		HttpOnly: httpOnly,
-		SameSite: http.SameSiteNoneMode,
-	}
-
-	// Set the cookie using http.SetCookie
-	http.SetCookie(c.Writer, cookie)
+	// Set the cookie using Gin helper
+	c.SetSameSite(http.SameSiteNoneMode)
+	c.SetCookie(
+		cookieName,
+		cookieValue,
+		maxAge,
+		path,
+		domain,
+		secure,
+		httpOnly,
+	)
 
 	// Log response headers
 	log.Printf("Response headers being set:")

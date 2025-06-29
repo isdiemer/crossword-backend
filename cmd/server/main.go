@@ -43,18 +43,24 @@ func buildCORS() cors.Config {
 	}
 
 	// Exact-match origins from env (comma-separated)
-	exact := map[string]struct{}{
-		"https://crossword-frontend-one.vercel.app": struct{}{},
-	}
+	exact := map[string]struct{}{}
+	allowOrigins := []string{"https://crossword-frontend-one.vercel.app"}
+	exact["https://crossword-frontend-one.vercel.app"] = struct{}{}
 	if v := os.Getenv("ALLOWED_ORIGINS"); v != "" {
 		for _, o := range strings.Split(v, ",") {
 			o = strings.TrimSpace(o)
+			if o == "" {
+				continue
+			}
 			exact[o] = struct{}{}
+			allowOrigins = append(allowOrigins, o)
 			log.Printf("Added allowed origin: %s", o)
 		}
 	} else {
 		log.Printf("Warning: No ALLOWED_ORIGINS environment variable set, using default Vercel domain")
 	}
+
+	cfg.AllowOrigins = allowOrigins
 
 	cfg.AllowOriginFunc = func(origin string) bool {
 		// Log the incoming origin
