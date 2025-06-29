@@ -43,16 +43,17 @@ func LoginHandler(c *gin.Context) {
 		log.Printf("%s: %v", k, v)
 	}
 
-	// Get origin and set cookie domain
+	// Determine cookie domain
 	origin := c.GetHeader("Origin")
 	log.Printf("Request Origin: %s", origin)
-
-	// Extract domain from origin
-	var domain string
-	if strings.Contains(origin, "vercel.app") {
-		domain = ".vercel.app" // Note the leading dot for cross-subdomain support
-	} else {
-		domain = os.Getenv("COOKIE_DOMAIN")
+	host := c.Request.Host
+	domain := os.Getenv("COOKIE_DOMAIN")
+	if domain == "" {
+		domain = strings.Split(host, ":")[0]
+	}
+	if strings.Contains(host, "vercel.app") {
+		// allow all Vercel preview subdomains to share the cookie
+		domain = ".vercel.app"
 	}
 
 	// Set cookie attributes
