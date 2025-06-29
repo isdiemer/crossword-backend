@@ -85,9 +85,3 @@ func DeleteHandler(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "account deleted"})
 }
-func HandShakeHandler(c *gin.Context) {
-	c.Redirect(
-		307,
-		"https://crossword-frontend-one.vercel.app",
-	)
-}
