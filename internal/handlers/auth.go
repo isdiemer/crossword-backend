@@ -3,7 +3,6 @@ package handlers
 import (
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/isdiemer/crossword-backend/internal/sessions"
@@ -36,22 +35,15 @@ func LoginHandler(c *gin.Context) {
 		return
 	}
 
-	origin := c.GetHeader("Origin") // e.g. https://branch--app.vercel.app
-	domain := ""                    // omit = exact host
-	if strings.HasSuffix(origin, ".vercel.app") {
-		domain = "crossword-frontend-one.vercel.app" // explicit, or leave blank
-	}
-
-	// ONE call – Gin wraps http.SetCookie under the hood
 	c.SetSameSite(http.SameSiteNoneMode)
 	c.SetCookie(
-		"session_token",
-		token,
-		3600,   // Max-Age seconds
-		"/",    // Path
-		domain, // Domain ("" → current host)
-		true,   // Secure
-		true,   // HttpOnly
+		"session_token", // name
+		token,           // value
+		3600,            // max-age (seconds)
+		"/",             // path
+		"",              // domain  ← empty string = host-only cookie
+		true,            // secure
+		true,            // httpOnly
 	)
 
 	c.JSON(http.StatusOK, gin.H{
